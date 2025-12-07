@@ -1,0 +1,28 @@
+# Node server
+node-server/node_modules/
+node-server/.env
+node-server/npm-debug.log
+
+# Node server
+node-server/*.js text eol=lf
+node-server/*.json text eol=lf
+
+# C++ backend
+cpp-backend/**/*.cpp text eol=lf
+cpp-backend/**/*.hpp text eol=lf
+
+# Ignore binaries
+*.exe binary
+*.dll binary
+
+
+.vscode/
+
+# Optional C++ build outputs
+cpp/*.exe
+cpp/*.o
+cpp/*.obj
+cpp/*.out
+
+# OS / editor files
+.DS_Store
