@@ -8,7 +8,7 @@ class CppBridge {
   }
 
   initProcess() {
-    const cppExecutable = path.join(__dirname, '../../cpp-backend/task_manager.exe');
+    const cppExecutable = path.join(__dirname, '../../cpp-backend/task_manager');
     this.cppProcess = spawn(cppExecutable);
 
     this.cppProcess.stderr.on('data', (data) => {
