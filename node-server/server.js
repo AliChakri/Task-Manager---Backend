@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 5000;
 // Enable Cross-Origin Resource Sharing (CORS) for front-end access
 app.use(
   cors({
-    origin: "http://localhost:5173", // your frontend URL
+    origin: process.env.FRONTEND_URI, // your frontend URL
      credentials: true,
      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization']
