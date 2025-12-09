@@ -1,31 +1,18 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
+
+// Initialize with your API key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Generate 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Create email transporter
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: 'smtp.sendgrid.net',
-    port: 465,
-    secure: true,
-    auth: {
-      user: 'apikey',
-      pass: process.env.EMAIL_PASSWORD
-    }
-  });
-};
-
 // Send verification email
 const sendVerificationEmail = async (email, username, otp) => {
-  const transporter = createTransporter();
-
-  const mailOptions = {
-    // NOTE: The 'from' address must be a verified sender in your SendGrid account!
-    from: `"Task Manager" <${process.env.EMAIL_USER}>`,
+  const msg = {
     to: email,
+    from: process.env.EMAIL_USER, // Must be verified in SendGrid
     subject: 'Verify Your Email - Task Manager',
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
@@ -42,13 +29,13 @@ const sendVerificationEmail = async (email, username, otp) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sgMail.send(msg);
     console.log('Verification email sent to:', email);
     return true;
   } catch (error) {
     console.error('Error sending verification email:', error);
     if (error.response) {
-        console.error('SMTP Response:', error.response);
+      console.error('SendGrid Response:', error.response.body);
     }
     throw new Error('Failed to send verification email');
   }
@@ -56,12 +43,9 @@ const sendVerificationEmail = async (email, username, otp) => {
 
 // Send password reset email
 const sendPasswordResetEmail = async (email, username, otp) => {
-  const transporter = createTransporter();
-
-  const mailOptions = {
-    // NOTE: The 'from' address must be a verified sender in your SendGrid account!
-    from: `"Task Manager" <${process.env.EMAIL_USER}>`,
+  const msg = {
     to: email,
+    from: process.env.EMAIL_USER,
     subject: 'Password Reset Request - Task Manager',
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
@@ -79,13 +63,13 @@ const sendPasswordResetEmail = async (email, username, otp) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sgMail.send(msg);
     console.log('Password reset email sent to:', email);
     return true;
   } catch (error) {
     console.error('Error sending reset email:', error);
     if (error.response) {
-        console.error('SMTP Response:', error.response);
+      console.error('SendGrid Response:', error.response.body);
     }
     throw new Error('Failed to send password reset email');
   }
