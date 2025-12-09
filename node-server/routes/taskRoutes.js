@@ -27,7 +27,7 @@ router.use(verifyToken);
 // ============================================
 router.post('/', async (req, res) => {
   try {
-    const { title, description, priority, tags, dueDate } = req.body;
+    const { title, description, priority, status, tags, dueDate } = req.body;
 
     if (!title || title.trim() === '') {
       return res.status(400).json({ success: false, message: 'Title is required' });
@@ -42,6 +42,7 @@ router.post('/', async (req, res) => {
       description: description || '',
       priority: priority || 1,
       tags: tags || [],
+      status: status || 0,
       userId: req.userId,
       dueDate: dueDate || null
     };
