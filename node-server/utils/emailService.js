@@ -12,7 +12,8 @@ const generateOTP = () => {
 const sendVerificationEmail = async (email, username, otp) => {
   const msg = {
     to: email,
-    from: process.env.EMAIL_USER, // Must be verified in SendGrid
+    from: process.env.EMAIL_USER,
+    replyTo: process.env.EMAIL_USER,
     subject: 'Verify Your Email - Task Manager',
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
@@ -29,16 +30,18 @@ const sendVerificationEmail = async (email, username, otp) => {
   };
 
   try {
-    await sgMail.send(msg);
-    console.log('Verification email sent to:', email);
+    const response = await sgMail.send(msg);
+    console.log('✅ Verification email sent to:', email);
+    console.log('Message ID:', response[0].headers['x-message-id']);
     return true;
   } catch (error) {
-    console.error('Error sending verification email:', error);
+    console.error('❌ Error sending verification email:', error);
     if (error.response) {
       console.error('SendGrid Response:', error.response.body);
     }
     throw new Error('Failed to send verification email');
   }
+
 };
 
 // Send password reset email
