@@ -9,8 +9,8 @@ const generateOTP = () => {
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: 'smtp.sendgrid.net',
-    port: 587,
-    secure: false,
+    port: 465,
+    secure: true,
     auth: {
       user: 'apikey',
       pass: process.env.EMAIL_PASSWORD
