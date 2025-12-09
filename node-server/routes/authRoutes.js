@@ -244,7 +244,12 @@ router.post('/login', async (req, res) => {
 
       const token = generateToken(user._id, user.username);
       
-      res.cookie('token', token);
+    res.cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production', // true in production
+          sameSite: 'strict', // or 'lax' for cross-site requests
+          maxAge: 24 * 60 * 60 * 1000 // 24 hours (match your token expiration)
+      });
 
     return res.json({
       success: true,
@@ -486,7 +491,11 @@ router.post('/change-password', verifyToken, async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     // Remove JWT cookie
-    res.clearCookie('token');
+    res.clearCookie('token',  {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict'
+  });
 
     return res.json({
       success: true,
