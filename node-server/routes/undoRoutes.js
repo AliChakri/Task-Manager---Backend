@@ -136,8 +136,12 @@ router.get('/history', async (req, res) => {
       type: op.type,
       taskId: op.taskId,
       taskTitle: op.newState?.title || op.previousState?.title,
+      taskDesc: op.newState?.description || op.previousState?.description,
+      taskStatus: op.newState?.status || op.previousState?.status,
+      taskPriority: op.newState?.priority || op.previousState?.priority,
+      taskTags: op.newState?.tags || op.previousState?.tags,
       timestamp: op.timestamp
-    })).reverse(); // Most recent first
+    })).reverse();
 
     res.json({
       success: true,
