@@ -137,7 +137,7 @@ router.get('/stats' ,async (req, res) => {
     }
 
     // === 1️⃣ Total tasks ===
-    const totalTasks = await Task.countDocuments({ userId });
+    const totalTasks = await Task.countDocuments();
     
     // === 1️⃣ Total tasks ===
     const totalUsers = await User.countDocuments({ isVerified: true });
