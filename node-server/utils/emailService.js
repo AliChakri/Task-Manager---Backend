@@ -1,4 +1,7 @@
-const mailjet = require('node-mailjet').apiConnect(
+const Mailjet = require('node-mailjet');
+
+// Initialize Mailjet
+const mailjet = Mailjet.apiConnect(
   process.env.MAILJET_API_KEY,
   process.env.MAILJET_SECRET_KEY
 );
@@ -11,13 +14,13 @@ const generateOTP = () => {
 // Send verification email
 const sendVerificationEmail = async (email, username, otp) => {
   try {
-    const request = await mailjet
+    const request = mailjet
       .post('send', { version: 'v3.1' })
       .request({
         Messages: [
           {
             From: {
-              Email: 'noreply@mailjet.com',
+              Email: process.env.MAILJET_SENDER_EMAIL || 'noreply@yourdomain.com',
               Name: 'Task Manager'
             },
             To: [
@@ -44,10 +47,13 @@ const sendVerificationEmail = async (email, username, otp) => {
         ]
       });
 
-    console.log('✅ Email sent successfully:', request.body);
+    const result = await request;
+    console.log('✅ Email sent successfully to:', email);
+    console.log('Response:', result.body);
     return true;
   } catch (error) {
-    console.error('❌ Mailjet error:', error.statusCode, error.message);
+    console.error('❌ Mailjet error:', error.statusCode || error.message);
+    console.error('Full error:', error);
     throw new Error('Failed to send verification email');
   }
 };
@@ -55,13 +61,13 @@ const sendVerificationEmail = async (email, username, otp) => {
 // Send password reset email
 const sendPasswordResetEmail = async (email, username, otp) => {
   try {
-    const request = await mailjet
+    const request = mailjet
       .post('send', { version: 'v3.1' })
       .request({
         Messages: [
           {
             From: {
-              Email: 'noreply@mailjet.com',
+              Email: process.env.MAILJET_SENDER_EMAIL || 'noreply@yourdomain.com',
               Name: 'Task Manager'
             },
             To: [
@@ -88,10 +94,13 @@ const sendPasswordResetEmail = async (email, username, otp) => {
         ]
       });
 
-    console.log('✅ Password reset email sent:', request.body);
+    const result = await request;
+    console.log('✅ Password reset email sent to:', email);
+    console.log('Response:', result.body);
     return true;
   } catch (error) {
-    console.error('❌ Mailjet error:', error.statusCode, error.message);
+    console.error('❌ Mailjet error:', error.statusCode || error.message);
+    console.error('Full error:', error);
     throw new Error('Failed to send password reset email');
   }
 };
