@@ -20,18 +20,23 @@ const userSchema = new mongoose.Schema({
     required: true,
     minlength: 6
   },
+
   isVerified: {
     type: Boolean,
     default: false
   },
+
   verificationOTP: {
     type: String,
     default: null
   },
+
   verificationOTPExpires: {
     type: Date,
-    default: null
+    default: null,
+    expires: 0 
   },
+
   resetPasswordOTP: {
     type: String,
     default: null
@@ -40,6 +45,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+
   createdAt: {
     type: Date,
     default: Date.now
