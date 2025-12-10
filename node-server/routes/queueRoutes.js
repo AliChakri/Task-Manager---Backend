@@ -31,10 +31,10 @@ async function getUserQueue(userId) {
 // ============================================
 queueRoute.post('/add/:taskId', async (req, res) => {
   try {
-    const taskId = req.params.taskId;
+    const stringTaskId = req.params.taskId;
 
-    const task = await Task.findOne({ taskId, userId: req.userId });
-    
+    const task = await Task.findOne({ taskId: stringTaskId, userId: req.userId });
+
     if (!task) {
       return res.status(404).json({
         success: false,
@@ -42,8 +42,8 @@ queueRoute.post('/add/:taskId', async (req, res) => {
       });
     }
 
-    // Only TO_DO (0) or PENDING (1) tasks can be queued
-    if (task.status !== 0 && task.status !== 1) {
+    // Only TO_DO (0) or PENDING (1)
+    if (![0, 1].includes(task.status)) {
       return res.status(400).json({
         success: false,
         message: 'Only TO_DO or PENDING tasks can be added to queue'
@@ -52,7 +52,8 @@ queueRoute.post('/add/:taskId', async (req, res) => {
 
     const queue = await getUserQueue(req.userId);
 
-    const alreadyQueued = queue.tasks.some(t => t.taskId === taskId);
+    const alreadyQueued = queue.tasks.some(t => t.taskId.toString() === task._id.toString());
+
     if (alreadyQueued) {
       return res.status(400).json({
         success: false,
@@ -61,13 +62,14 @@ queueRoute.post('/add/:taskId', async (req, res) => {
     }
 
     queue.tasks.push({
-      taskId: taskId,
+      taskId: task._id,
       addedAt: new Date()
     });
+
     await queue.save();
 
-    // Add to C++ queue
-    await cppBridge.addToQueue(taskId);
+    // Send task._id to C++
+    await cppBridge.addToQueue(task._id.toString());
 
     res.json({
       success: true,
@@ -84,6 +86,7 @@ queueRoute.post('/add/:taskId', async (req, res) => {
     });
   }
 });
+
 
 // ============================================
 // Traiter la prochaine tâche (Defiller)
