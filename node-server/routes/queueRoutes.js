@@ -118,9 +118,9 @@ queueRoute.post('/next', async (req, res) => {
     // Process in C++ queue
     const cppResult = await cppBridge.processNextTask(req.userId);
 
-    const task = await Task.findOneAndUpdate(
-      { taskId: queuedTask.taskId },
-      { status: 2 }, // IN_PROGRESS
+    const task = await Task.findByIdAndUpdate(
+      queuedTask.taskId,
+      { status: 2 },
       { new: true }
     );
 
@@ -172,21 +172,25 @@ queueRoute.get('/', async (req, res) => {
     const queue = await getUserQueue(req.userId);
 
     const taskIds = queue.tasks.map(t => t.taskId);
-    const tasks = await Task.find({ taskId: { $in: taskIds } });
+
+    const tasks = await Task.find({ _id: { $in: taskIds } });
 
     const queueWithDetails = queue.tasks.map((queueItem, index) => {
-      const task = tasks.find(t => t.taskId === queueItem.taskId);
+      const task = tasks.find(t => t._id.toString() === queueItem.taskId.toString());
+
       return {
         position: index + 1,
         taskId: queueItem.taskId,
         addedAt: queueItem.addedAt,
-        task: task ? {
-          title: task.title,
-          Description: task.Description,
-          priority: task.priority,
-          status: task.status,
-          dueDate: task.dueDate
-        } : null
+        task: task
+          ? {
+              title: task.title,
+              description: task.description,
+              status: task.status,
+              priority: task.priority,
+              dueDate: task.dueDate,
+            }
+          : null
       };
     });
 
@@ -205,6 +209,7 @@ queueRoute.get('/', async (req, res) => {
   }
 });
 
+
 // ============================================
 // Vider toute la file
 // Description: Supprime toutes les tâches de la file de l'utilisateur.
@@ -219,13 +224,18 @@ queueRoute.delete('/clear', async (req, res) => {
   try {
     const queue = await getUserQueue(req.userId);
     const clearedCount = queue.tasks.length;
-    
+
+    // Clear MongoDB queue
     queue.tasks = [];
     await queue.save();
 
+    // Clear C++ queue too (important!)
+    await cppBridge.clearQueue(req.userId);
+
     res.json({
       success: true,
-      message: `Cleared ${clearedCount} tasks from queue`
+      message: `Cleared ${clearedCount} tasks from queue`,
+      queueSize: 0
     });
 
   } catch (err) {
@@ -235,6 +245,7 @@ queueRoute.delete('/clear', async (req, res) => {
     });
   }
 });
+
 
 // ============================================
 // Obtenir le statut de la file
@@ -255,18 +266,42 @@ queueRoute.delete('/clear', async (req, res) => {
 queueRoute.get('/status', async (req, res) => {
   try {
     const queue = await getUserQueue(req.userId);
+    const isEmpty = queue.tasks.length === 0;
 
-    // Get C++ queue status too
-    const cppResult = await cppBridge.getQueueStatus(req.userId);
+    let nextTask = null;
+    if (!isEmpty) {
+      nextTask = await Task.findById(queue.tasks[0].taskId).select(
+        'title description priority status dueDate'
+      );
+    }
+
+    // --- Get C++ queue status safely ---
+    let cppQueueSize = 0;
+    try {
+      const cppResult = await cppBridge.getQueueStatus(req.userId);
+      cppQueueSize = cppResult?.queueSize ?? 0;
+    } catch (cppErr) {
+      cppQueueSize = -1;
+    }
 
     res.json({
       success: true,
       queueSize: queue.tasks.length,
-      isEmpty: queue.tasks.length === 0,
-      hasNext: queue.tasks.length > 0,
-      nextTask: queue.tasks.length > 0 ? queue.tasks[0].taskId : null,
-      cppQueueSize: cppResult.queueSize
+      isEmpty,
+      hasNext: !isEmpty,
+      nextTask: nextTask
+        ? {
+            id: nextTask._id.toString(),
+            title: nextTask.title,
+            description: nextTask.description,
+            priority: nextTask.priority,
+            status: nextTask.status,
+            dueDate: nextTask.dueDate
+          }
+        : null,
+      cppQueueSize
     });
+
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -300,12 +335,30 @@ queueRoute.get('/peek', async (req, res) => {
     }
 
     const nextTaskId = queue.tasks[0].taskId;
-    const nextTask = await Task.findOne({ taskId: nextTaskId });
+
+    // Fetch correct task
+    const nextTask = await Task.findById(nextTaskId).select(
+      'title description priority status dueDate'
+    );
+
+    if (!nextTask) {
+      return res.status(404).json({
+        success: false,
+        message: 'Task not found in database'
+      });
+    }
 
     res.json({
       success: true,
       message: 'Next task in queue',
-      task: nextTask,
+      task: {
+        id: nextTask._id.toString(),
+        title: nextTask.title,
+        description: nextTask.description,
+        priority: nextTask.priority,
+        status: nextTask.status,
+        dueDate: nextTask.dueDate
+      },
       position: 1,
       remainingInQueue: queue.tasks.length
     });
