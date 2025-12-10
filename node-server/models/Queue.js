@@ -9,8 +9,9 @@ const QueueSchema = new mongoose.Schema({
     unique: true
   },
   tasks: [{
-    taskId: {
-      type: String,
+    taskId: { 
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Task',
       required: true
     },
     addedAt: {

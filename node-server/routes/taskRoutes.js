@@ -5,6 +5,7 @@ const Task = require('../models/Task');
 const Stack = require('../models/Stack');
 const moment = require('moment');
 const crypto = require('crypto');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ router.post('/', async (req, res) => {
     if (!cppResult.success) return res.status(400).json(cppResult);
 
     // Save task in MongoDB
-    const dbTask = new Task({ ...taskData, status: cppResult.data.status });
+    const dbTask = new Task(taskData);
     await dbTask.save();
 
     // Push CREATE to undo stack
@@ -116,7 +117,8 @@ router.get('/', async (req, res) => {
  //   success: true,
  //   message: 'Task statistics fetched successfully',
  //   data: {
- //     totalTasks,
+//     totalTasks,
+//     totalUsers,
  //     completedTasks, // Tasks with status 3 (COMPLETED)
  //     tasksThisMonth // Tasks created since the 1st of the current month
  //   }
@@ -136,6 +138,9 @@ router.get('/stats' ,async (req, res) => {
 
     // === 1️⃣ Total tasks ===
     const totalTasks = await Task.countDocuments({ userId });
+    
+    // === 1️⃣ Total tasks ===
+    const totalUsers = await User.countDocuments({ isVerified: true });
 
     // === 2️⃣ Completed tasks ===
     const completedTasks = await Task.countDocuments({
@@ -157,6 +162,7 @@ router.get('/stats' ,async (req, res) => {
       message: 'Task statistics fetched successfully',
       data: {
         totalTasks,
+        totalUsers,
         completedTasks,
         tasksThisMonth
       }

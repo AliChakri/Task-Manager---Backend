@@ -120,13 +120,10 @@ router.post('/verify-email', async (req, res) => {
       });
     }
 
-    // Verify user
     user.isVerified = true;
     user.verificationOTP = null;
     user.verificationOTPExpires = null;
     await user.save();
-
-    // const token = generateToken(user._id, user.username);
 
     return res.json({
       success: true,
@@ -136,7 +133,6 @@ router.post('/verify-email', async (req, res) => {
         username: user.username,
         email: user.email,
         isVerified: true,
-        // token
       }
     });
 
@@ -238,7 +234,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Update last login
     user.lastLogin = new Date();
     await user.save();
 
@@ -246,9 +241,9 @@ router.post('/login', async (req, res) => {
       
     res.cookie('token', token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production', // true in production
-          sameSite: 'strict', // or 'lax' for cross-site requests
-          maxAge: 24 * 60 * 60 * 1000 // 24 hours (match your token expiration)
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 24 * 60 * 60 * 1000
       });
 
     return res.json({
@@ -292,7 +287,6 @@ router.post('/forgot-password', async (req, res) => {
       });
     }
 
-    // Generate OTP
     const otp = generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -432,7 +426,7 @@ router.post('/reset-password', async (req, res) => {
 router.post('/change-password', verifyToken, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.userId; // comes from verified JWT
+    const userId = req.userId;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
@@ -457,7 +451,6 @@ router.post('/change-password', verifyToken, async (req, res) => {
       });
     }
 
-    // Check if current password is correct
     const isMatched = await bcrypt.compare(currentPassword, user.password);
 
     if (!isMatched) {
@@ -467,7 +460,6 @@ router.post('/change-password', verifyToken, async (req, res) => {
       });
     }
 
-    // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     user.password = hashedPassword;
@@ -490,7 +482,6 @@ router.post('/change-password', verifyToken, async (req, res) => {
 // LOGOUT
 router.post('/logout', async (req, res) => {
   try {
-    // Remove JWT cookie
     res.clearCookie('token',  {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -511,11 +502,10 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-// DELETE USER
 // DELETE USER + HIS TASKS
 router.delete('/delete-account',  verifyToken,async (req, res) => {
   try {
-    const userId = req.userId; // from auth middleware
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -524,7 +514,6 @@ router.delete('/delete-account',  verifyToken,async (req, res) => {
       });
     }
 
-    // Check user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -533,14 +522,15 @@ router.delete('/delete-account',  verifyToken,async (req, res) => {
       });
     }
 
-    // Delete all user's tasks
     await Task.deleteMany({ userId });
 
-    // Delete user
     await User.findByIdAndDelete(userId);
 
-    // Clear cookies
-    res.clearCookie("token");
+      res.clearCookie('token',  {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
 
     return res.json({
       success: true,

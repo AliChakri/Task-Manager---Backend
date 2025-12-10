@@ -1,17 +1,14 @@
 const Mailjet = require('node-mailjet');
 
-// Initialize Mailjet
 const mailjet = Mailjet.apiConnect(
   process.env.MAILJET_API_KEY,
   process.env.MAILJET_SECRET_KEY
 );
 
-// Generate 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Send verification email
 const sendVerificationEmail = async (email, username, otp) => {
   try {
     const request = mailjet
@@ -48,17 +45,16 @@ const sendVerificationEmail = async (email, username, otp) => {
       });
 
     const result = await request;
-    console.log('✅ Email sent successfully to:', email);
+    console.log('Email sent successfully to:', email);
     console.log('Response:', result.body);
     return true;
   } catch (error) {
-    console.error('❌ Mailjet error:', error.statusCode || error.message);
+    console.error('Mailjet error:', error.statusCode || error.message);
     console.error('Full error:', error);
     throw new Error('Failed to send verification email');
   }
 };
 
-// Send password reset email
 const sendPasswordResetEmail = async (email, username, otp) => {
   try {
     const request = mailjet
@@ -95,11 +91,11 @@ const sendPasswordResetEmail = async (email, username, otp) => {
       });
 
     const result = await request;
-    console.log('✅ Password reset email sent to:', email);
+    console.log('Password reset email sent to:', email);
     console.log('Response:', result.body);
     return true;
   } catch (error) {
-    console.error('❌ Mailjet error:', error.statusCode || error.message);
+    console.error('Mailjet error:', error.statusCode || error.message);
     console.error('Full error:', error);
     throw new Error('Failed to send password reset email');
   }

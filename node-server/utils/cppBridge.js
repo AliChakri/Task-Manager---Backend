@@ -49,7 +49,6 @@ class CppBridge {
     });
   }
 
-  // === NEW FUNCTION ===
   async initNextId(nextId) {
     return this.sendCommand({
       action: 'initNextId',
@@ -57,7 +56,8 @@ class CppBridge {
     });
   }
 
-  // --- Task operations ---
+  // --- Task OPERATIONS ---
+  
   async createTask(taskData) {
     return this.sendCommand({
       action: 'create',
@@ -97,7 +97,7 @@ class CppBridge {
     });
   }
 
-  // --- Undo ---
+  // --- STACK (Undo) OPERATIONS ---
   async undoLastOperation(userId) {
     return this.sendCommand({
       action: 'undo',
