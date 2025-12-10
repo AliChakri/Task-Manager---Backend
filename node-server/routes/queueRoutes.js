@@ -7,7 +7,6 @@ const Queue = require('../models/Queue');
 const queueRoute = express.Router();
 queueRoute.use(verifyToken);
 
-// Helper: Get or create user's queue
 async function getUserQueue(userId) {
   let queue = await Queue.findOne({ userId });
   if (!queue) {
@@ -18,22 +17,22 @@ async function getUserQueue(userId) {
 }
 
 // ============================================
-// ADD TASK TO PROCESSING QUEUE
-// DESCRIPTION: Adds a task to the user's processing queue if it's TO_DO (0) or PENDING (1) status.
-// SUCCESS RESPONSE:
-// res.json({
-//     success: true,
-//     message: "Task added to processing queue",
-//     queueSize: 1,      // total number of tasks in queue after adding
-//     position: 1        // position of the task in the queue (FIFO)
-// })
-// PATH:  POST /api/queue/add/:taskId
+// Ajouter une tâche à la file de traitement
+// Description: Ajoute une tâche à la file d'attente de traitement de l'utilisateur si son statut est TO_DO (0) ou PENDING (1). 
+//              La tâche est également ajoutée à la structure de file d'attente C++ sous-jacente.
+// Reponse succés en json format:
+// {	
+// "success": true,	
+// "message": "Task added to processing queue",	
+// "queueSize": 1,	
+// "position": 1	
+// }
+// Route:  POST /api/queue/add/:taskId
 // ============================================
 queueRoute.post('/add/:taskId', async (req, res) => {
   try {
     const taskId = req.params.taskId;
 
-    // Verify task exists and belongs to user
     const task = await Task.findOne({ taskId, userId: req.userId });
     
     if (!task) {
@@ -51,10 +50,8 @@ queueRoute.post('/add/:taskId', async (req, res) => {
       });
     }
 
-    // Get user's queue from MongoDB
     const queue = await getUserQueue(req.userId);
 
-    // Check if task already in queue
     const alreadyQueued = queue.tasks.some(t => t.taskId === taskId);
     if (alreadyQueued) {
       return res.status(400).json({
@@ -63,7 +60,6 @@ queueRoute.post('/add/:taskId', async (req, res) => {
       });
     }
 
-    // Add to MongoDB queue
     queue.tasks.push({
       taskId: taskId,
       addedAt: new Date()
@@ -90,20 +86,20 @@ queueRoute.post('/add/:taskId', async (req, res) => {
 });
 
 // ============================================
-// PROCESS NEXT TASK (Dequeue)
-// DESCRIPTION: Removes the first task in the user's queue (FIFO) and marks it as IN_PROGRESS.
-// SUCCESS RESPONSE:
-// res.json({
-//     success: true,
-//     message: "Started working on task",
-//     task: task,               // the full task object after updating status
-//     remainingInQueue: 2       // number of tasks left in the queue
-// })
-// PATH:  POST /api/queue/next
+// Traiter la prochaine tâche (Defiller)
+// Description: Retire la première tâche de la file de l'utilisateur (FIFO) . 
+//              La tâche est ensuite marquée comme `IN_PROGRESS` (2) dans la base de données.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "message": "Started working on task",
+//   "task": nouvTask (apres l'echange de status ),
+//   "remainingInQueue": Int 
+// }
+// Route:  POST /api/queue/next
 // ============================================
 queueRoute.post('/next', async (req, res) => {
   try {
-    // Get user's queue from MongoDB
     const queue = await getUserQueue(req.userId);
 
     if (queue.tasks.length === 0) {
@@ -113,14 +109,12 @@ queueRoute.post('/next', async (req, res) => {
       });
     }
 
-    // Get first task from queue
-    const queuedTask = queue.tasks.shift(); // Remove first (FIFO)
+    const queuedTask = queue.tasks.shift();
     await queue.save();
 
     // Process in C++ queue
     const cppResult = await cppBridge.processNextTask(req.userId);
 
-    // Update status in MongoDB
     const task = await Task.findOneAndUpdate(
       { taskId: queuedTask.taskId },
       { status: 2 }, // IN_PROGRESS
@@ -151,39 +145,32 @@ queueRoute.post('/next', async (req, res) => {
 });
 
 // ============================================
-// VIEW PROCESSING QUEUE
-// DESCRIPTION: Returns a list of all tasks in the user's queue along with their details and position.
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   queueSize: 1,               // total number of tasks in queue
-//   isEmpty: false,             // true if queue is empty
-//   queue: [
-//       {
-//         position: 1,          // FIFO position
-//         taskId: "44fcbe9ac84d190f",
-//         addedAt: "2025-12-07T21:24:41.701Z",
-//         task: {
-//           title: "Task Title",
-//           description: "Task description",
-//           priority: 2,
-//           status: 0,
-//           dueDate: "2025-12-08T00:00:00.000Z"
-//         }
-//       }
+// Voir la file de traitement
+// Description: Renvoie une liste complète des tâches actuellement en attente dans la file de l'utilisateur, 
+//              y compris leurs métadonnées (position, date d'ajout) et les détails de la tâche.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "queueSize": 1,
+//   "isEmpty": false,
+//   "queue": [
+//     {
+//       "position": 1,
+//       "taskId": "44fcbe9ac84d190f",
+//       "addedAt": "2025-12-07T21:24:41.701Z",
+//       "task": { /* task details... */ }
+//     }
 //   ]
-// })
-// PATH:  GET /api/queue
+// }
+// Route:  GET /api/queue
 // ============================================
 queueRoute.get('/', async (req, res) => {
   try {
     const queue = await getUserQueue(req.userId);
 
-    // Get full task details for each queued task
     const taskIds = queue.tasks.map(t => t.taskId);
     const tasks = await Task.find({ taskId: { $in: taskIds } });
 
-    // Map tasks with queue position
     const queueWithDetails = queue.tasks.map((queueItem, index) => {
       const task = tasks.find(t => t.taskId === queueItem.taskId);
       return {
@@ -192,7 +179,7 @@ queueRoute.get('/', async (req, res) => {
         addedAt: queueItem.addedAt,
         task: task ? {
           title: task.title,
-          description: task.description,
+          Description: task.Description,
           priority: task.priority,
           status: task.status,
           dueDate: task.dueDate
@@ -216,14 +203,14 @@ queueRoute.get('/', async (req, res) => {
 });
 
 // ============================================
-// CLEAR ENTIRE QUEUE
-// DESCRIPTION: Removes all tasks from the user's queue.
-// SUCCESS RESPONSE:
-// res.json({
-//     success: true,
-//     message: "Cleared 2 tasks from queue"  // number of tasks removed
-// })
-// PATH:  DELETE /api/queue/clear
+// Vider toute la file
+// Description: Supprime toutes les tâches de la file de l'utilisateur.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "message": "Cleared 2 tasks from queue"
+// }
+// Route:  DELETE /api/queue/clear
 // ============================================
 queueRoute.delete('/clear', async (req, res) => {
   try {
@@ -247,18 +234,20 @@ queueRoute.delete('/clear', async (req, res) => {
 });
 
 // ============================================
-// GET QUEUE STATUS
-// DESCRIPTION: Returns information about the user's queue and C++ queue status.
-// SUCCESS RESPONSE:
-// res.json({
-//     success: true,
-//     queueSize: 1,               // number of tasks in user's MongoDB queue
-//     isEmpty: false,             // true if queue is empty
-//     hasNext: true,              // true if there is a next task to process
-//     nextTask: "44fcbe9ac84d190f", // taskId of next task
-//     cppQueueSize: 0             // number of tasks in C++ queue
-// })
-// PATH:  GET /api/queue/status
+// Obtenir le statut de la file
+// Description: Renvoie des informations agrégées sur l'état de la file d'attente de l'utilisateur,
+//              y compris la taille de la file MongoDB et la taille de la file C++ sous-jacente,
+//              pour des raisons de surveillance et de cohérence
+// Reponse succés en json format:
+// {
+// "success": true,
+//   "queueSize": 1,
+//   "isEmpty": false,
+//   "hasNext": true,
+//   "nextTask": "44fcbe9ac84d190f",
+//   "cppQueueSize": 0 
+// }
+// Route:  GET /api/queue/status
 // ============================================
 queueRoute.get('/status', async (req, res) => {
   try {
@@ -284,17 +273,17 @@ queueRoute.get('/status', async (req, res) => {
 });
 
 // ============================================
-// PEEK NEXT TASK (without removing)
-// DESCRIPTION: Returns details of the next task in queue without removing it.
-// SUCCESS RESPONSE:
-// res.json({
-//     success: true,
-//     message: "Next task in queue",
-//     task: task,               // full task object of the next task
-//     position: 1,              // position in the queue (always 1 for next)
-//     remainingInQueue: 1       // total tasks remaining in queue
-// })
-// PATH:  GET /api/queue/peek
+// Aperçu de la prochaine tâche (sans retrait)
+// Description: Renvoie les détails de la prochaine tâche à être traitée (la première de la file) sans la retirer de la file d'attente.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "message": "Next task in queue",
+//   "task": { /* full task object of the next task */ },
+//   "position": 1,
+//   "remainingInQueue": 1 
+// }
+// Route:  GET /api/queue/peek
 // ============================================
 queueRoute.get('/peek', async (req, res) => {
   try {

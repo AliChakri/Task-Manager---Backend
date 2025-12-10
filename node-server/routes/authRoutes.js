@@ -7,7 +7,7 @@ const Task = require('../models/Task');
 
 const router = express.Router();
 
-// REGISTER
+// Créer un nouveau compte utilisateur.
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -78,7 +78,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// VERIFY EMAIL WITH OTP
+// Valider l'adresse e-mail de l'utilisateur avec le code OTP envoyé lors de l'inscription.
 router.post('/verify-email', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -145,7 +145,7 @@ router.post('/verify-email', async (req, res) => {
   }
 });
 
-// RESEND VERIFICATION OTP
+// Générer un nouvel OTP et le renvoyer à l'utilisateur.
 router.post('/resend-verification', async (req, res) => {
   try {
     const { email } = req.body;
@@ -196,7 +196,7 @@ router.post('/resend-verification', async (req, res) => {
   }
 });
 
-// LOGIN
+// Authentifier l'utilisateur et lui fournir un jeton d'accès.
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -266,7 +266,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// FORGOT PASSWORD - Send OTP
+// Initier la procédure de réinitialisation de mot de passe.
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -310,7 +310,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// VERIFY RESET PASSWORD OTP
+// Confirmer que l'utilisateur détient le bon OTP de réinitialisation.
 router.post('/verify-reset-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -359,7 +359,7 @@ router.post('/verify-reset-otp', async (req, res) => {
   }
 });
 
-// RESET PASSWORD
+// Changer le mot de passe après vérification de l'OTP.
 router.post('/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -422,7 +422,7 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// CHANGE PASSWORD (USER LOGGED IN)
+// Permettre à un utilisateur connecté de modifier son mot de passe.
 router.post('/change-password', verifyToken, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -479,7 +479,7 @@ router.post('/change-password', verifyToken, async (req, res) => {
   }
 });
 
-// LOGOUT
+// Supprimer le jeton de la session. (Deconnecter)
 router.post('/logout', async (req, res) => {
   try {
     res.clearCookie('token',  {
@@ -502,7 +502,7 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-// DELETE USER + HIS TASKS
+// Supprimer définitivement le compte utilisateur et toutes les tâches associées.
 router.delete('/delete-account',  verifyToken,async (req, res) => {
   try {
     const userId = req.userId;
@@ -547,7 +547,7 @@ router.delete('/delete-account',  verifyToken,async (req, res) => {
 });
 
 
-// GET CURRENT USER (Protected)
+// Récupérer les informations du profil de l'utilisateur connecté.
 router.get('/me', verifyToken, async (req, res) => {
     try {
       
