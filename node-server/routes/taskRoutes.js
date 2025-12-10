@@ -127,7 +127,7 @@ router.get('/', async (req, res) => {
 // ============================================
 router.get('/stats' ,async (req, res) => {
   try {
-    const userId = req.userId; // provided by your auth middleware
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -136,19 +136,15 @@ router.get('/stats' ,async (req, res) => {
       });
     }
 
-    // === 1️⃣ Total tasks ===
     const totalTasks = await Task.countDocuments();
     
-    // === 1️⃣ Total tasks ===
     const totalUsers = await User.countDocuments({ isVerified: true });
 
-    // === 2️⃣ Completed tasks ===
     const completedTasks = await Task.countDocuments({
       userId,
       status: 3 // COMPLETED
     });
 
-    // === 3️⃣ Tasks created this month ===
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
