@@ -135,6 +135,8 @@ router.get('/stats' ,async (req, res) => {
     }
 
     const totalTasks = await Task.countDocuments();
+
+    const totalUserTasks = await Task.countDocuments({ userId: userId });
     
     const totalUsers = await User.countDocuments({ isVerified: true });
 
@@ -156,6 +158,7 @@ router.get('/stats' ,async (req, res) => {
       message: 'Task statistics fetched successfully',
       data: {
         totalTasks,
+        totalUserTasks,
         totalUsers,
         completedTasks,
         tasksThisMonth
