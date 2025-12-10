@@ -47,15 +47,15 @@ router.post('/', async (req, res) => {
       dueDate: dueDate || null
     };
 
-    // 1️⃣ Create task in C++
+    // Create task in C++
     const cppResult = await cppBridge.createTask(taskData);
     if (!cppResult.success) return res.status(400).json(cppResult);
 
-    // 2️⃣ Save task in MongoDB
+    // Save task in MongoDB
     const dbTask = new Task({ ...taskData, status: cppResult.data.status });
     await dbTask.save();
 
-    // 3️⃣ Push CREATE to undo stack
+    // Push CREATE to undo stack
     let stack = await Stack.findOne({ userId: req.userId });
     if (!stack) stack = new Stack({ userId: req.userId, stack: [] });
 
@@ -456,14 +456,14 @@ router.put('/:id', async (req, res) => {
     const oldTask = await Task.findOne({ taskId, userId: req.userId });
     if (!oldTask) return res.status(404).json({ success: false, message: 'Task not found' });
 
-    // 1️⃣ Update in Mongo
+    // Update in Mongo
     const task = await Task.findOneAndUpdate(
       { taskId, userId: req.userId },
       updateData,
       { new: true }
     );
 
-    // 2️⃣ Update in C++
+    // Update in C++
     await cppBridge.updateTask(taskId, updateData);
 
     // 3️⃣ Push UPDATE to undo stack

@@ -5,21 +5,26 @@
 
 using json = nlohmann::json;
 
-// ---------------------------------------------------------
-// PRIVATE: pushUndo()
-// ---------------------------------------------------------
+/**
+ * Pousser l'opération d'annulation (pushUndo)
+ * Ajoute une opération d'annulation au sommet de la pile 'undoStack'. 
+ * Cette implémentation simple ne conserve qu'une seule opération (niveau d'annulation unique).
+ * op L'objet Operation décrivant l'action à annuler.
+ */
 void TaskController::pushUndo(const Operation& op) {
-    // enforce max undo size (here simple 1-level undo)
     if (!undoStack.isEmpty()) {
-        undoStack.pop();  // remove previous (keep only 1-level)
+        undoStack.pop();
     }
     undoStack.push(op);
 }
 
 
-// ============================================
-// CREATE TASK
-// ============================================
+/**
+ * Créer une tâche
+ * Traite une requête JSON pour créer une nouvelle tâche, l'insère dans la liste chaînée et gère la réponse.
+ * jsonData Chaîne JSON contenant les détails de la nouvelle tâche.
+ * Retourne Une chaîne JSON indiquant le succès ou l'échec de l'opération.
+ */
 std::string TaskController::createTask(const std::string& jsonData) {
     try {
         json input = json::parse(jsonData);
@@ -42,13 +47,6 @@ std::string TaskController::createTask(const std::string& jsonData) {
 
         taskList.insert(newTask);
 
-        // Push undo operation: undo of create = delete
-        // Operation op(OperationType::DELETE_OP, taskId, "", newTask->toJson(), userId);
-        // pushUndo(op);
-
-        // Operation op(OperationType::CREATE, taskId, "", newTask->toJson(), userId);
-        // pushUndo(op);
-
         json response;
         response["success"] = true;
         response["message"] = "Task created successfully";
@@ -64,9 +62,12 @@ std::string TaskController::createTask(const std::string& jsonData) {
     }
 }
 
-// ============================================
-// GET ALL TASKS FOR USER
-// ============================================
+/**
+ * Obtenir toutes les tâches pour un utilisateur
+ * Récupère toutes les tâches associées à un ID utilisateur spécifique en utilisant la liste chaînée.
+ * userId L'identifiant de l'utilisateur.
+ * Retourne Une chaîne JSON contenant la liste des tâches ou un message d'erreur.
+ */
 std::string TaskController::getTasks(const std::string& userId) {
     try {
         std::vector<Task*> tasks = taskList.getByUserId(userId);
@@ -90,9 +91,12 @@ std::string TaskController::getTasks(const std::string& userId) {
     }
 }
 
-// ============================================
-// GET SINGLE TASK BY ID
-// ============================================
+/**
+ * Obtenir une seule tâche par ID
+ * Recherche une tâche spécifique dans la liste chaînée par son ID.
+ * taskId L'identifiant de la tâche à récupérer.
+ * Retourne Une chaîne JSON contenant la tâche ou un message d'erreur si elle n'est pas trouvée.
+ */
 std::string TaskController::getTask(const std::string& taskId) {
     try {
         Task* task = taskList.find(taskId);
@@ -118,9 +122,13 @@ std::string TaskController::getTask(const std::string& taskId) {
     }
 }
 
-// ============================================
-// UPDATE TASK
-// ============================================
+/**
+ * Mettre à jour une tâche
+ * Met à jour les propriétés d'une tâche existante à partir des données JSON. L'état précédent est sauvegardé pour l'annulation.
+ * taskId L'identifiant de la tâche à modifier.
+ * jsonData Chaîne JSON contenant les champs de la tâche à mettre à jour.
+ * Retourne Une chaîne JSON indiquant le succès ou l'échec.
+ */
 std::string TaskController::editTask(const std::string& taskId, const std::string& jsonData) {
     try {
         Task* task = taskList.find(taskId);
@@ -131,7 +139,6 @@ std::string TaskController::editTask(const std::string& taskId, const std::strin
             return error.dump();
         }
 
-        // Save previous state for undo
         std::string prevState = task->toJson();
 
         json input = json::parse(jsonData);
@@ -155,10 +162,6 @@ std::string TaskController::editTask(const std::string& taskId, const std::strin
         if (input.contains("dueDate") && !input["dueDate"].is_null())
             task->setDueDate(input["dueDate"].get<time_t>());
 
-        // Push undo operation: undo of update = restore previous state
-        // Operation op(OperationType::UPDATE, taskId, prevState, task->toJson(), task->getUserId());
-        // pushUndo(op);
-
         json response;
         response["success"] = true;
         response["message"] = "Task updated successfully";
@@ -174,9 +177,12 @@ std::string TaskController::editTask(const std::string& taskId, const std::strin
     }
 }
 
-// ============================================
-// DELETE TASK
-// ============================================
+/**
+ * Supprimer une tâche
+ * Recherche une tâche par ID, la sauvegarde pour l'annulation (Undo) et la retire de la liste chaînée.
+ * taskId L'identifiant de la tâche à supprimer.
+ * Retourne Une chaîne JSON indiquant le succès ou l'échec de la suppression.
+ */
 std::string TaskController::deleteTask(const std::string& taskId) {
     try {
         Task* task = taskList.find(taskId);
@@ -186,11 +192,6 @@ std::string TaskController::deleteTask(const std::string& taskId) {
             error["error"] = "Task not found";
             return error.dump();
         }
-
-        // Push undo operation: undo of delete = restore deleted task
-        // Operation op(OperationType::CREATE, taskId, task->toJson(), "", task->getUserId());
-        // Operation op(OperationType::DELETE_OP, taskId, task->toJson(), "", task->getUserId());
-        // pushUndo(op);
 
         bool removed = taskList.remove(taskId);
 
@@ -208,9 +209,12 @@ std::string TaskController::deleteTask(const std::string& taskId) {
     }
 }
 
-// ============================================
-// UNDO LAST OPERATION (1-level simple undo)
-// ============================================
+/**
+ * Annuler la dernière opération
+ * Retire la dernière opération de la pile 'undoStack' et applique l'action inverse (créer/supprimer/restaurer l'état).
+ * userId L'identifiant de l'utilisateur (utilisé pour le contexte).
+ * Retourne Une chaîne JSON indiquant le succès de l'annulation ou l'absence d'opération à annuler.
+ */
 std::string TaskController::undoLastOperation(const std::string& userId) {
     try {
         if (undoStack.isEmpty()) {
@@ -224,12 +228,12 @@ std::string TaskController::undoLastOperation(const std::string& userId) {
         Task* task;
 
         switch (op.type) {
-            case CREATE: // undo = delete created task
+            case CREATE:
                 taskList.remove(op.taskId);
                 break;
 
-            case DELETE_OP: { // undo = restore deleted task
-                // Recreate task from JSON string
+            case DELETE_OP: {
+                
                 json j = json::parse(op.newState);
                 task = new Task(
                     j["id"].get<std::string>(),
@@ -250,11 +254,11 @@ std::string TaskController::undoLastOperation(const std::string& userId) {
                 break;
             }
 
-            case UPDATE: { // undo = restore previous state
+            case UPDATE: {
                 json j = json::parse(op.previousState);
-                // remove old version
+                
                 taskList.remove(op.taskId);
-                // recreate previous version
+                
                 task = new Task(
                     j["id"].get<std::string>(),
                     j["title"].get<std::string>(),
@@ -288,9 +292,12 @@ std::string TaskController::undoLastOperation(const std::string& userId) {
     }
 }
 
-// ============================================
-// GET UNDO STATUS
-// ============================================
+/**
+ * Obtenir le statut de l'annulation
+ * Vérifie si une opération d'annulation est disponible dans la pile.
+ * userId L'identifiant de l'utilisateur.
+ * Retourne Une chaîne JSON indiquant si l'annulation est possible (`hasUndo`).
+ */
 std::string TaskController::getUndoStatus(const std::string& userId) {
     json response;
     response["success"] = true;
@@ -298,9 +305,12 @@ std::string TaskController::getUndoStatus(const std::string& userId) {
     return response.dump();
 }
 
-// ============================================
-// GET UNDO HISTORY (just last op for 1-level)
-// ============================================
+/**
+ * Obtenir l'historique d'annulation
+ * Retourne les détails de la dernière opération pouvant être annulée (en respectant la limite 1-niveau).
+ * userId L'identifiant de l'utilisateur.
+ * Retourne Une chaîne JSON avec les informations de la dernière opération ou `nullptr`.
+ */
 std::string TaskController::getUndoHistory(const std::string& userId) {
 
     json response;
@@ -313,11 +323,12 @@ std::string TaskController::getUndoHistory(const std::string& userId) {
     return response.dump();
 }
 
-// QUEUE METHODS
-
-// ============================================
-// ADD TASK TO PROCESSING QUEUE
-// ============================================
+/**
+ * Ajouter une tâche à la file de traitement
+ * Recherche une tâche par ID et l'ajoute à la file de traitement (`processingQueue`), si son statut le permet.
+ * taskId L'identifiant de la tâche à mettre en file.
+ * Retourne Une chaîne JSON indiquant le succès et la taille actuelle de la file.
+ */
 std::string TaskController::addToQueue(const std::string& taskId) {
     try {
         Task* task = taskList.find(taskId);
@@ -329,7 +340,6 @@ std::string TaskController::addToQueue(const std::string& taskId) {
             return error.dump();
         }
 
-        // Only allow TO_DO or PENDING tasks to be queued
         if (task->getStatus() != TO_DO && task->getStatus() != PENDING) {
             json error;
             error["success"] = false;
@@ -337,7 +347,6 @@ std::string TaskController::addToQueue(const std::string& taskId) {
             return error.dump();
         }
 
-        // Check if already in queue (simple check - would need list iteration in production)
         processingQueue.enqueue(taskId);
         
         json response;
@@ -355,9 +364,12 @@ std::string TaskController::addToQueue(const std::string& taskId) {
     }
 }
 
-// ============================================
-// PROCESS NEXT TASK (Dequeue)
-// ============================================
+/**
+ * Traiter la prochaine tâche
+ * Retire la tâche la plus ancienne de la file (`processingQueue.dequeue()`) et met à jour son statut à IN_PROGRESS.
+ * userId L'identifiant de l'utilisateur.
+ * Retourne Une chaîne JSON avec les détails de la tâche démarrée ou un message d'erreur.
+ */
 std::string TaskController::processNextTask(const std::string& userId) {
     try {
         if (processingQueue.isEmpty()) {
@@ -367,7 +379,6 @@ std::string TaskController::processNextTask(const std::string& userId) {
             return error.dump();
         }
 
-        // Dequeue next task
         std::string taskId = processingQueue.dequeue();
         Task* task = taskList.find(taskId);
         
@@ -378,7 +389,6 @@ std::string TaskController::processNextTask(const std::string& userId) {
             return error.dump();
         }
 
-        // Check if task belongs to this user
         if (task->getUserId() != userId) {
             json error;
             error["success"] = false;
@@ -386,7 +396,6 @@ std::string TaskController::processNextTask(const std::string& userId) {
             return error.dump();
         }
 
-        // Change status to IN_PROGRESS
         task->setStatus(IN_PROGRESS);
         
         json response;
@@ -405,18 +414,18 @@ std::string TaskController::processNextTask(const std::string& userId) {
     }
 }
 
-// ============================================
-// VIEW PROCESSING QUEUE
-// ============================================
+/**
+ * Voir la file de traitement
+ * Retourne l'état actuel de la file de traitement (taille et si elle est vide).
+ * userId L'identifiant de l'utilisateur.
+ * Retourne Une chaîne JSON avec les informations sur la file.
+ */
 std::string TaskController::viewQueue(const std::string& userId) {
     try {
         json response;
         response["success"] = true;
         response["queueSize"] = processingQueue.getSize();
         response["isEmpty"] = processingQueue.isEmpty();
-        
-        // Note: To actually list tasks, we'd need to iterate the queue
-        // For now, just return the size
         
         return response.dump();
         
@@ -428,9 +437,12 @@ std::string TaskController::viewQueue(const std::string& userId) {
     }
 }
 
-// ============================================
-// GET QUEUE STATUS
-// ============================================
+/**
+ * Obtenir le statut de la file
+ * Retourne des informations de base sur la file de traitement, y compris sa taille et sa disponibilité.
+ * userId L'identifiant de l'utilisateur.
+ * Retourne Une chaîne JSON avec le statut de la file.
+ */
 std::string TaskController::getQueueStatus(const std::string& userId) {
     try {
         json response;
@@ -449,9 +461,12 @@ std::string TaskController::getQueueStatus(const std::string& userId) {
     }
 }
 
-// ============================================
-// HANDLE REQUEST (Main entry point)
-// ============================================
+/**
+ * Gérer la requête (Point d'entrée principal)
+ * Reçoit une requête JSON, identifie l'action demandée (ex: "create", "update", "undo"), et délègue l'exécution à la méthode appropriée.
+ * jsonRequest Chaîne JSON contenant l'action et les données nécessaires.
+ * Retourne Le résultat de la méthode appelée, formaté en JSON.
+ */
 std::string TaskController::handleRequest(const std::string& jsonRequest) {
     try {
         json request = json::parse(jsonRequest);
@@ -462,11 +477,11 @@ std::string TaskController::handleRequest(const std::string& jsonRequest) {
         else if (action == "getById") return getTask(request["taskId"].get<std::string>());
         else if (action == "update") return editTask(request["taskId"].get<std::string>(), request["data"].dump());
         else if (action == "delete") return deleteTask(request["taskId"].get<std::string>());
+
         else if (action == "undo") return undoLastOperation(request["userId"].get<std::string>());
         else if (action == "undoStatus") return getUndoStatus(request["userId"].get<std::string>());
         else if (action == "undoHistory") return getUndoHistory(request["userId"].get<std::string>());
         
-        // Queue operations
         else if (action == "addToQueue") return addToQueue(request["taskId"].get<std::string>());
         else if (action == "processNext") return processNextTask(request["userId"].get<std::string>());
         else if (action == "viewQueue") return viewQueue(request["userId"].get<std::string>());
