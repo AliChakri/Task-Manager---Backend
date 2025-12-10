@@ -21,25 +21,24 @@ async function getUserStack(userId) {
 async function pushToStack(userId, operation) {
   const stack = await getUserStack(userId);
   
-  // Add to stack (max 20 operations)
   stack.stack.push(operation);
   if (stack.stack.length > 20) {
-    stack.stack.shift(); // Remove oldest
+    stack.stack.shift();
   }
   
   await stack.save();
 }
 
 // ============================================
-// UNDO LAST OPERATION
-// DESCRIPTION: Reverts the last operation performed by the user (CREATE, UPDATE, DELETE).
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   message: "Operation undone successfully",
-//   operationType: "CREATE" || "UPDATE" || "DELETE"
-// });
-// PATH:  POST /api/undo/undo
+//  Annuler la dernière opération
+// Description : Annule la dernière opération effectuée par l'utilisateur (CREATE, UPDATE ou DELETE) en utilisant le principe LIFO
+// Reponse succés en json format:
+// { 
+//    "success": true,
+//    "message": "Operation undone successfully",
+//    "operationType": "(CREATE, UPDATE ou DELETE)" 
+// }
+// Route:  POST /api/undo/undo
 // ============================================
 router.post('/undo', async (req, res) => {
   try {
@@ -52,20 +51,20 @@ router.post('/undo', async (req, res) => {
     await stack.save();
 
     if (operation.type === 'CREATE') {
-      // Undo create = delete task
+
       await Task.deleteOne({ taskId: operation.taskId, userId: req.userId });
       await cppBridge.deleteTask(operation.taskId);
 
     } else if (operation.type === 'UPDATE') {
-      // Undo update = restore previous state
+
       const prev = operation.previousState;
       await Task.findOneAndUpdate({ taskId: operation.taskId, userId: req.userId }, prev, { new: true });
       await cppBridge.updateTask(operation.taskId, prev);
 
     } else if (operation.type === 'DELETE') {
-      // Undo delete = restore previous task
+
       const prev = operation.previousState;
-      await Task.deleteOne({ taskId: prev.taskId, userId: req.userId }); // remove conflicts
+      await Task.deleteOne({ taskId: prev.taskId, userId: req.userId });
       const restoredTask = new Task({ ...prev, userId: req.userId });
       await restoredTask.save();
       await cppBridge.createTask({ ...prev, userId: req.userId });
@@ -79,16 +78,17 @@ router.post('/undo', async (req, res) => {
 });
 
 // ============================================
-// GET UNDO STATUS
-// DESCRIPTION: Returns information about the user's undo stack and C++ linked list undo availability.
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   canUndo: true,        // whether there are operations to undo in MongoDB
-//   undoCount: 5,         // number of operations currently in the undo stack
-//   cppHasUndo: true      // whether C++ linked list has undo operations
-// });
-// PATH:  GET /api/undo/status
+// Obtenir le statut de l'annulation
+// Description: Renvoie des informations sur la disponibilité de l'annulation. 
+//              Vérifie si la pile MongoDB contient des opérations et interroge également la disponibilité de l'annulation dans la structure C++.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "canUndo": true, 
+//   "undoCount": 5, 
+//   "cppHasUndo": true
+// }
+// Route:  GET /api/undo/status
 // ============================================
 router.get('/status', async (req, res) => {
   try {
@@ -111,22 +111,22 @@ router.get('/status', async (req, res) => {
 });
 
 // ============================================
-// GET UNDO HISTORY
-// DESCRIPTION: Retrieves a chronological list of all undoable operations stored in the user's undo stack.
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   count: 8,    // total number of operations in history
-//   history: [
-//     {
-//       type: "CREATE" || "UPDATE" || "DELETE",
-//       taskId: "44fcbe9ac84d190f",
-//       taskTitle: "Example Task",
-//       timestamp: "2025-12-07T20:55:48.033Z"
-//     }
-//   ]
-// });
-// PATH:  GET /api/undo/history
+// Obtenir l'historique d'annulation
+// Description: Retrieves a chronological list of all undoable operations stored in the user's undo stack.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//    "count": 8,
+//    "history":[
+//       {
+//        "type": "CREATE",
+//        "taskId": "44fcbe9ac84d190f",
+//        "taskTitle": "Example Task",
+//        "timestamp": "2025-12-07T20:55:48.033Z"
+//       }
+//    ]
+// }
+// Route:  GET /api/undo/history
 // ============================================
 router.get('/history', async (req, res) => {
   try {
@@ -157,14 +157,14 @@ router.get('/history', async (req, res) => {
 });
 
 // ============================================
-// CLEAR UNDO HISTORY
-// DESCRIPTION: Clears all operations from the user's undo stack in MongoDB.
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   message: "Undo history cleared"
-// });
-// PATH:  DELETE /api/undo/clear
+// Vider l'historique d'annulation
+// Description: Supprime toutes les opérations enregistrées dans la pile d'annulation de l'utilisateur dans MongoDB.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "message": "Undo history cleared"
+// }
+// Route:  DELETE /api/undo/clear
 // ============================================
 router.delete('/clear', async (req, res) => {
   try {

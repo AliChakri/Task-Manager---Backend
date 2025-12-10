@@ -14,33 +14,31 @@ const router = express.Router();
 router.use(verifyToken);
 
 // ============================================
-//  CREATE TASK
-// DESCRIPTION: Handles the creation of a new task.
-// PROCESS: 1. Validate input. 2. Generate unique ID. 3. Call C++ system to create task.
-//          4. Save the task details to MongoDB. 5. Record the CREATE action for Undo/Redo (Stack).
-// SUCCESS RESPONSE:
+//  Créer une Tâche
+// Description: Gère la création d'une nouvelle tâche.
+// Implémentation C++ : Appel à cppBridge.createTask(taskData) pour insérer la nouvelle tâche dans la structure de données C++
+// Reponse succés en json format:
 // {
-// "success": true,
-//   "message": "Task created successfully",
-//   "data": newTask // The newly created task object
+//   "success": true,
+//   "message": "Task created successfully",
+//   "data": { /* Nouvou Tache objet */ }
 // }
-// PATH:  POST /api/tasks
+// Route:  POST /api/tasks
 // ============================================
 router.post('/', async (req, res) => {
   try {
-    const { title, description, priority, status, tags, dueDate } = req.body;
+    const { title, Description, priority, status, tags, dueDate } = req.body;
 
     if (!title || title.trim() === '') {
       return res.status(400).json({ success: false, message: 'Title is required' });
     }
 
-    // Generate unique taskId
     const taskId = crypto.randomBytes(8).toString('hex');
 
     const taskData = {
       taskId,
       title: title.trim(),
-      description: description || '',
+      Description: Description || '',
       priority: priority || 1,
       tags: tags || [],
       status: status || 0,
@@ -52,11 +50,9 @@ router.post('/', async (req, res) => {
     const cppResult = await cppBridge.createTask(taskData);
     if (!cppResult.success) return res.status(400).json(cppResult);
 
-    // Save task in MongoDB
     const dbTask = new Task(taskData);
     await dbTask.save();
 
-    // Push CREATE to undo stack
     let stack = await Stack.findOne({ userId: req.userId });
     if (!stack) stack = new Stack({ userId: req.userId, stack: [] });
 
@@ -79,15 +75,16 @@ router.post('/', async (req, res) => {
 });
 
 // ============================================
-//  GET ALL TASKS
-// DESCRIPTION: Fetches all tasks belonging to the authenticated user, sorted by creation date (newest first).
-// SUCCESS RESPONSE:
-// res.json({
+//  Obtenir Toutes les Tâches
+// Description: Récupère toutes les tâches appartenant à l'utilisateur authentifié, 
+// triées par date de création (du plus récent au plus ancien).
+// Reponse succés en json format:
+// {
 //   success: true,
 //   count: tasks.length,
-//   data: tasks // Array of all task objects
-// });
-// PATH:  GET /api/tasks
+//   data: tasks // Tableau de toutres les Taches Objet
+// }
+// Route:  GET /api/tasks
 // ============================================
 router.get('/', async (req, res) => {
   try {
@@ -110,20 +107,21 @@ router.get('/', async (req, res) => {
 });
 
 // ============================================
-//   GET TASKS STATS (Overall Summary)
-// DESCRIPTION: Provides key summary statistics (Total, Completed, Created This Month).
-// SUCCESS RESPONSE:
- // return res.json({
- //   success: true,
- //   message: 'Task statistics fetched successfully',
- //   data: {
-//     totalTasks,
-//     totalUsers,
- //     completedTasks, // Tasks with status 3 (COMPLETED)
- //     tasksThisMonth // Tasks created since the 1st of the current month
- //   }
-// });
-// PATH:  GET /api/tasks/stats
+//   Obtenir les Statistiques Générales
+// Description: Fournit des statistiques de haut niveau, incluant le nombre total de tâches pour tous les utilisateurs, 
+// le nombre total d'utilisateurs vérifiés, le nombre de tâches complétées par l'utilisateur actuel, 
+// et le nombre de tâches créées ce mois-ci par l'utilisateur.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "message": "Task statistics fetched successfully",
+//   "data": {
+//     "totalTasks": 1500,
+//     "totalUsers": 50,
+//     "completedTasks": 15,
+//     "tasksThisMonth": 7 
+//   }
+// Route:  GET /api/tasks/stats
 // ============================================
 router.get('/stats' ,async (req, res) => {
   try {
@@ -174,15 +172,15 @@ router.get('/stats' ,async (req, res) => {
 });
 
 // ============================================
-//  GET FAVOURITE TASKS
-// DESCRIPTION: Fetches all tasks marked as favorites by the authenticated user.
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   count: tasks.length,
-//   data: tasks // Array of favorite task objects
-// });
-// PATH:  GET /api/tasks/favorites
+//  Obtenir les Tâches Favorites
+// Description: Récupère toutes les tâches appartenant à l'utilisateur authentifié qui ont été marquées comme favorites (isFavorite: true).
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "count": 5,
+//   "data":
+// }
+// Route:  GET /api/tasks/favorites
 // ============================================
 router.get('/favorites', async (req, res) => {
   try {
@@ -194,20 +192,20 @@ router.get('/favorites', async (req, res) => {
 });
 
 // ============================================
-//  GET TASK STATUS STATS (for Doughnut Chart)
-// DESCRIPTION: Calculates the count of tasks for each status category (To Do, Pending, In Progress, Completed).
-// SUCCESS RESPONSE:
-// return res.json({
-//   success: true,
-//   message: "Task status stats fetched successfully",
-//   data: {
-// todo, // Status 0
-// pending, // Status 1
-// inProgress, // Status 2
-// completed // Status 3
-//   }
-// });
-// PATH:  GET /api/tasks/status-stats
+//  Obtenir les Statistiques de Statut (Graphique en Secteur)
+// Description: Calcule le décompte des tâches pour chaque statut (`To Do`, `Pending`, `In Progress`, `Completed`), idéal pour un graphique en secteur .
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "message": "Task status stats fetched successfully",
+//   "data": {
+//     "todo": 5, 
+//     "pending": 2, 
+//     "inProgress": 1, 
+//     "completed": 4
+//   }
+// }
+// Route:  GET /api/tasks/status-stats
 // ============================================
 router.get('/status-stats', async (req, res) => {
   try {
@@ -273,14 +271,18 @@ router.get('/status-stats', async (req, res) => {
 });
 
 // ============================================
-//   GET WEEK STATUS TASK (for Line Chart)
-// DESCRIPTION: Aggregates the number of tasks completed each day of the current week (Mon-Sun).
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   data: result // Array of objects: [{ day: "Mon", completed: X }, ...]
-// });
-// PATH:  GET /api/tasks/week-stats
+//   Obtenir les Statistiques Hebdomadaires (Graphique Linéaire)
+// Description: Agrège le nombre de tâches complétées (status: 3) par jour pour la semaine en cours (du lundi au dimanche), souvent utilisé pour un graphique linéaire .
+// Reponse succés en json format:
+// {
+//   "success": true,
+//     "data": [
+//       { "day": "Mon", "completed": 2 },
+//       { "day": "Tue", "completed": 0 },
+//     { "day": "Wed", "completed": 5 }, // ... 
+//   ]
+// }
+// Route:  GET /api/tasks/week-stats
 // ============================================
 router.get('/week-stats', async (req, res) => {
   try {
@@ -323,18 +325,15 @@ router.get('/week-stats', async (req, res) => {
 });
 
 // ============================================
-// SEARCH TASKS BY TITLE
-// DESCRIPTION: Allows users to search their tasks by title (case-insensitive).
-//              Returns tasks that contain the search string in their title.
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   count: Number,        // Number of matched tasks
-//   data: tasks           // Array of task objects
-// });
-// PATH:  GET /api/tasks/search?title=yourSearchTerm
-// QUERY PARAMS:
-// title: string (required) - the title text to search for
+// Rechercher des Tâches par Titre
+// Description: Permet aux utilisateurs de rechercher leurs tâches par titre en utilisant une expression régulière insensible à la casse (`$regex`, `$options: 'i'`).
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "count": 3, 
+//   "data": [ /* Tableau de Tache objets */ ]
+// }
+// Route:  GET /api/tasks/search?title=yourSearchTerm
 // ============================================
 router.get('/search', async (req, res) => {
   try {
@@ -369,15 +368,15 @@ router.get('/search', async (req, res) => {
 });
 
 // ============================================
-// CLEAR ALL TASKS
-// DESCRIPTION: Deletes all tasks belonging to the authenticated user.
-// SUCCESS RESPONSE:
-// res.json({
-//   success: true,
-//   deletedCount: Number, // Number of tasks deleted
-//   message: "All tasks cleared successfully"
-// });
-// PATH:  POST /api/tasks/clear
+// Effacer Toutes les Tâches
+// Description: Supprime toutes les tâches appartenant à l'utilisateur connecté.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "deletedCount": 15,
+//   "message": "All tasks cleared successfully"
+// }
+// Route:  POST /api/tasks/clear
 // ============================================
 router.post('/clear', async (req, res) => {
   try {
@@ -402,12 +401,14 @@ router.post('/clear', async (req, res) => {
 });
 
 // ============================================
-// GET SINGLE TASK
-    // res.json({
-    //   success: true,
-    //   data: task
-// });
-// PATH:  GET /api/tasks/:id
+// Lire une Tâche Individuelle
+// Description: Récupère les détails d'une seule tâche par son `taskId`.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "data": { /* task object */ }
+// }
+// Route:  GET /api/tasks/:id
 // ============================================
 router.get('/:id', async (req, res) => {
   try {
@@ -438,17 +439,17 @@ router.get('/:id', async (req, res) => {
 });
 
 // ============================================
-//  UPDATE TASK
-// DESCRIPTION: Modifies an existing task's details.
-// PROCESS: 1. Fetch current state (for undo). 2. Update in MongoDB. 3. Update in C++ system.
-//          4. Record the UPDATE action for Undo (Stack).
-// SUCCESS RESPONSE:
-//     // res.json({
-//     //   success: true,
-//     //   message: 'Task updated successfully',
-//     //   data: task // The updated task object
-// // });
-//   // PATH:  PUT /api/tasks/:id
+//  Mettre à jour une Tâche
+// Description: Modifie les détails d'une tâche existante (`taskId` dans les paramètres).
+//   **Implémentation C++** : Appel à `cppBridge.updateTask(taskId, updateData)` pour synchroniser les modifications avec la structure C++.
+//    Enregistrement de l'action `UPDATE` (avec `previousState` et `newState`) dans la Pile d'Annulation.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "message": "Task updated successfully",
+//   "data": { /* updated task object */ }
+// }
+//   // Route:  PUT /api/tasks/:id
 // ============================================
 router.put('/:id', async (req, res) => {
   try {
@@ -491,16 +492,15 @@ router.put('/:id', async (req, res) => {
 });
 
 // ============================================
-//   DELETE TASK
-// DESCRIPTION: Removes a task permanently.
-// PROCESS: 1. Find task (for undo). 2. Delete from MongoDB. 3. Delete from C++ system.
-//          4. Record the DELETE action for Undo/Redo (Stack).
-// SUCCESS RESPONSE:
-//     // res.json({
-//     //   success: true,
-//     //   message: 'Task deleted successfully'
-// // });
-//     // PATH:  DELETE /api/tasks/:id
+//   Supprimer une Tâche
+// Description: Supprime une tâche de manière permanente.
+// Implémentation C++ : Appel à cppBridge.deleteTask(taskId) pour retirer la tâche de la structure C++.
+// Reponse succés en json format:
+// { 
+//    "success": true,
+//    "message": "Task deleted successfully" 
+// }
+//     // Route:  DELETE /api/tasks/:id
 // ============================================
 router.delete('/:id', async (req, res) => {
   try {
@@ -538,15 +538,16 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ============================================
-//  TOGGLE FAVOURITE TASK
-// DESCRIPTION: Toggles the `isFavorite` status of a task in both MongoDB and the C++ system.
-// SUCCESS RESPONSE:
-//     // res.json({
-//     //   success: true,
-//     //   message: task.isFavorite ? 'Added to favorites' : 'Removed from favorites',
-//     //   data: task // The updated task object
-// // });
-//     // PATH:  PATCH /api/tasks/:id/favorite
+//  Basculer le Statut Favori
+// Description: Inverse le statut isFavorite d'une tâche.
+// Implémentation C++ : Appel à cppBridge.updateTask(taskId, { isFavorite: value }) pour synchroniser le statut.
+// Reponse succés en json format:
+// {
+//   "success": true,
+//   "message": "Added to favorites",
+//   "data": Taches
+// }
+//     // Route:  PATCH /api/tasks/:id/favorite
 // ============================================
 router.patch('/:id/favorite', async (req, res) => {
   try {

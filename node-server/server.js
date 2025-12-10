@@ -3,116 +3,109 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-// --- Route Handlers ---
+// --- Gestionnaires de Routes ---
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const Undorouter = require('./routes/undoRoutes');
 const queueRoute = require('./routes/queueRoutes');
 
-// --- Utilities & Models ---
+// --- Utilitaires & Modèles ---
 
-// Utility to interface with the external C++ task management system
+// Utilitaire pour interagir avec le système externe de gestion des tâches en C++
 const cppBridge = require('./utils/cppBridge');
 
 const Task = require('./models/Task');
 const Queue = require('./models/Queue');
 
 const app = express();
-// Configure the port: use the environment variable PORT or default to 5000
+
 const PORT = process.env.PORT || 5000;
 
-// --- Application Middleware ---
+// --- Middleware d'Application ---
 
-// Enable Cross-Origin Resource Sharing (CORS) for front-end access
 app.use(
-  cors({
-    origin: process.env.FRONTEND_URI, // your frontend URL
-     credentials: true,
-     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  })
+    cors({
+        origin: process.env.FRONTEND_URI,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+        allowedHeaders: ['Content-Type', 'Authorization']
+    })
 );
-// Parse incoming JSON requests, making body data available in req.body
+
 app.use(express.json());
 
-// --- MongoDB Database Connection ---
+// --- Connexion à la Base de Données MongoDB ---
 
-// Connect to MongoDB using the URI specified in the environment variables
 mongoose.connect(process.env.MONGODB_URI)
-   .then(() => {
-     console.log('MongoDB connected successfully')
-   })
-// Log any connection errors
-.catch(err => console.error('MongoDB connection error:', err));
+    .then(() => {
+        console.log('MongoDB connecté avec succès')
+    })
+    .catch(err => console.error('Erreur de connexion à MongoDB :', err));
 
-// --- Custom Middleware ---
+// --- Middleware Personnalisé ---
 
-// Logs HTTP method and path for every incoming request
+// Enregistre la méthode HTTP et le chemin pour chaque requête entrante
 app.use((req, res, next) => {
- console.log(`${req.method} ${req.path}`);
- next();
+    console.log(`${req.method} ${req.path}`);
+    next();
 });
 
-// --- API Route Definitions ---
+// --- Définitions des Routes API ---
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/undo', Undorouter);
 app.use('/api/queue', queueRoute);
 
-// --- Error Handlers ---
+// --- Gestionnaires d'Erreurs ---
 
-// 404 handler: Executes if no other route matched the incoming request
+// Gestionnaire 404 : Exécuté si aucune autre route ne correspond à la requête entrante
 app.use((req, res) => {
-   res.status(404).json({
-     success: false,
-     message: 'Route not found'
-   });
+    res.status(404).json({
+        success: false,
+        message: 'Route non trouvée'
+    });
 });
 
-// --- Server Initialization & Shutdown ---
+// --- Initialisation et Arrêt du Serveur ---
 
-// Start listening for incoming HTTP requests on the specified PORT
 app.listen(PORT, () => {
-   console.log(`Server running on port ${PORT}`);
+    console.log(`Serveur en cours d'exécution sur le port ${PORT}`);
 });
 
-// Graceful shutdown mechanism: Handles SIGTERM signal (typically sent by container orchestrators like Docker/Kubernetes)
+// Mécanisme d'arrêt élégant : Gère le signal SIGTERM (généralement envoyé par les orchestrateurs de conteneurs comme Docker/Kubernetes)
 process.on('SIGTERM', () => {
-   console.log('SIGTERM received, closing server...');
-   // Ensure the connection to the C++ bridge is properly terminated
-   const cppBridge = require('./utils/cppBridge');
-   cppBridge.close();
-   // Close the MongoDB database connection
-   mongoose.connection.close();
-   process.exit(0);
+    console.log('SIGTERM reçu, fermeture du serveur...');
+    // Assurer que la connexion au pont C++ est correctement terminée
+    const cppBridge = require('./utils/cppBridge');
+    cppBridge.close();
+    // Fermer la connexion à la base de données MongoDB
+    mongoose.connection.close();
+    process.exit(0);
 });
 
-// --- Startup Data Synchronization ---
+// --- Synchronisation des Données au Démarrage ---
 
 /**
- * Immediately Invoked Function Expression (IIFE) to load persistent queues
- * from MongoDB and synchronize their state with the C++ task management system.
- * This ensures the C++ system's memory-based queue starts with the latest data.
+ * Charge les files d'attente persistantes depuis MongoDB et synchronise leur état avec le système de gestion des tâches en C++.
+ * Ceci garantit que la file d'attente du système C++ (basée sur la mémoire) démarre avec les données les plus récentes.
  */
 (async function loadQueue() {
-   try {
-     // Fetch all queue documents from MongoDB
-     const allQueues = await Queue.find({});
+  try {
+      
+        const allQueues = await Queue.find({});
 
-     // Iterate through each user's queue
-     for (const queue of allQueues) {
-        // Iterate through all tasks within that queue
-        for (const task of queue.tasks) {
-          // Call the C++ bridge to add the task back into the C++ queue structure
-          await cppBridge.addToQueue(task.taskId);
+        for (const queue of allQueues) {
+            for (const task of queue.tasks) {
+                // Appeler le pont C++ pour ajouter la tâche à la structure de file d'attente C++
+                await cppBridge.addToQueue(task.taskId);
+            }
         }
-     }
 
-     console.log('Processing queues synced with C++');
-   } catch (err) {
-     console.error('Failed to sync queues:', err);
-   }
+        console.log('Files d\'attente de traitement synchronisées avec C++');
+    } catch (err) {
+        console.error('Échec de la synchronisation des files d\'attente :', err);
+    }
 })();
 
 module.exports = app;
